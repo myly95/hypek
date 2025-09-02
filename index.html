@@ -15,29 +15,32 @@
     .cards-container{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem;}
     .employee-card{background:#ddd;border:1px solid #999;border-radius:6px;padding:1rem;flex:1 1 250px;cursor:pointer;transition:0.2s;box-shadow:1px 1px 0 #000;position:relative;}
     .employee-card:hover{transform:scale(1.02);box-shadow:2px 2px 0 #000;}
-    .avatar{width:50px;height:50px;border-radius:50%;background:#aaa;display:inline-block;margin-right:0.5rem;}
+    .avatar{width:50px;height:50px;border-radius:50%;background:#aaa;display:inline-block;margin-right:0.5rem;object-fit:cover;}
     .progress-bar-container{width:100%;background:#ccc;height:25px;border:1px solid #000;border-radius:5px;overflow:hidden;margin:0.3rem 0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;user-select:none;}
     .progress-fill{height:100%;background:#00b894;width:0%;text-align:center;color:#222;transition:width 1s;}
     .stars{color:#f1c40f;font-size:1rem;margin:0.2rem 0;}
     table{width:100%;border-collapse:collapse;margin-top:1rem;}
     th,td{border-bottom:1px solid #000;padding:0.5rem;text-align:left;}
     #employeeModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:10;}
-    #employeeModal .modal-content{background:#fff;padding:2rem;border-radius:8px;max-width:600px;width:90%;position:relative;}
+    #employeeModal .modal-content{background:#fff;padding:2rem;border-radius:8px;max-width:600px;width:90%;position:relative;max-height:90vh;overflow-y:auto;}
     #employeeModal .close{position:absolute;top:10px;right:15px;cursor:pointer;font-weight:bold;}
-    #topBar{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:0.3rem;margin-bottom:1rem;}
+    #topBar{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:0.3rem;margin-bottom:1rem;gap:0.5rem;}
     #tabs{display:flex;gap:0.5rem;flex-grow:1;}
     #tabs button{background:#ddd;border:1px solid #000;border-bottom:none;padding:0.4rem 1rem;font-family:'Share Tech Mono',monospace;font-size:0.9rem;border-radius:8px 8px 0 0;cursor:pointer;outline:none;transition:background-color 0.3s ease;white-space:nowrap;}
     #tabs button:hover:not(.active){background:#bbb;}
     #tabs button.active{background:#f6f6f1;font-weight:bold;cursor:default;border-bottom:2px solid #f6f6f1;}
-    #logoutBtn{background:#ff4757;color:white;border:1px solid #c0392b;border-radius:6px;padding:0.25rem 0.75rem;font-family:'Share Tech Mono',monospace;font-size:0.9rem;cursor:pointer;transition:background-color 0.3s ease;min-width:75px;margin-left:1rem;white-space:nowrap;}
-    #logoutBtn:hover{background:#e84118;}
+    #logoutBtn,#backBtn{background:#ff4757;color:white;border:1px solid #c0392b;border-radius:6px;padding:0.25rem 0.75rem;font-family:'Share Tech Mono',monospace;font-size:0.9rem;cursor:pointer;transition:background-color 0.3s ease;min-width:75px;white-space:nowrap;}
+    #logoutBtn:hover,#backBtn:hover{background:#e84118;}
     #activityFeed{max-height:200px;overflow-y:auto;border:1px solid #ccc;padding:0.5rem;}
     #searchInput{margin:0.5rem 0;padding:0.5rem;font-family:inherit;}
+    #lastModified{margin-top:1rem;font-size:0.8rem;color:#555;text-align:right;}
+    #modalAvatar img{width:70px;height:70px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem;}
+    #filterContainer{margin-bottom:1rem;display:flex;gap:1rem;align-items:center;}
   </style>
 </head>
 <body>
 
-  <!-- LOGIN FORM (inchangé) -->
+  <!-- LOGIN FORM -->
   <div class="container" id="login-form">
     <h2>Account</h2>
     <input type="text" id="login-id" placeholder="Employee ID" autocomplete="off" />
@@ -48,18 +51,31 @@
 
   <!-- DASHBOARD -->
   <div class="container" id="dashboard" style="display:none;">
-    <h3>Welcome, <span id="username"></span></h3>
     <div id="topBar">
-      <div id="tabs">
-        <button id="btnDashboard" class="active" onclick="showTab('dashboardTab')">Employees</button>
+      <span>Welcome, <strong id="username"></strong></span>
+      <div style="display:flex;gap:0.5rem;">
+        <button id="backBtn" onclick="resetFilter()" style="display:none;">Back</button>
+        <button id="logoutBtn" onclick="logout()">Logout</button>
       </div>
-      <button id="logoutBtn" onclick="logout()">Logout</button>
     </div>
-    <input type="text" id="searchInput" placeholder="Search Employee..." oninput="searchEmployees()" />
-    <div id="dashboardTab">
-      <div class="cards-container" id="employeesContainer"></div>
+
+    <!-- FILTER -->
+    <div id="filterContainer">
+      <select id="siteFilter">
+        <option value="">Select Site</option>
+      </select>
+      <select id="shiftFilter">
+        <option value="">Select Shift</option>
+      </select>
+      <button onclick="applyFilter()">Submit</button>
+    </div>
+
+    <div id="dashboardTab" style="display:none;">
+      <input type="text" id="searchInput" placeholder="Search Employee..." oninput="searchEmployees()" />
+      <div class="cards-container" id="employeesContainer" style="display:none;"></div>
       <h4>Recent Activity</h4>
       <div id="activityFeed">Loading...</div>
+      <div id="lastModified"></div>
     </div>
   </div>
 
@@ -67,10 +83,12 @@
   <div id="employeeModal">
     <div class="modal-content">
       <span class="close" onclick="closeModal()">X</span>
+      <div id="modalAvatar"></div>
       <h3 id="modalName"></h3>
       <p>Badge: <span id="modalBadge"></span></p>
       <p>Thrive Coins: <span id="modalCoins"></span></p>
       <p>Actual Units / Weekly Goal: <span id="modalActual"></span></p>
+      <div class="progress-bar-container"><div id="modalProgress" class="progress-fill"></div></div>
       <h4>Transactions</h4>
       <table>
         <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
@@ -83,8 +101,8 @@
         <option value="Earning">Earning</option>
         <option value="Helping Hand">Helping Hand</option>
         <option value="Aisle Cleaning">Aisle Cleaning</option>
-        <option value="Aisle Cleaning">Purchased DI</option>
-        <option value="Aisle Cleaning">$5 Canteen </option>
+        <option value="Purchased DI">Purchased DI</option>
+        <option value="$5 Canteen">$5 Canteen</option>
       </select>
       <input type="number" id="txAmount" placeholder="Amount"/>
       <button onclick="addTransaction()">Submit</button>
@@ -92,152 +110,181 @@
     </div>
   </div>
 
-  <script>
+<script>
 const supabase = window.supabase.createClient(
   'https://qytrcfwmsnlpdsdybcwo.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5dHJjZndtc25scGRzZHliY3dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3NjE5ODIsImV4cCI6MjA2NzMzNzk4Mn0.VGLI9SmCg6bNDUAVu3tgZjoejtiQRlAk6ufClWD_4SM'
 );
 
+let employeesData=[], selectedEmployee=null,currentUser=null;
 
-    let employeesData=[], selectedEmployee=null,currentUser=null;
+async function login(){
+  const id=document.getElementById('login-id').value.trim().toLowerCase();
+  const pwd=document.getElementById('login-password').value;
+  const msg=document.getElementById('login-message');
+  if(!id||!pwd){ msg.textContent='Veuillez remplir tous les champs.'; return;}
+  msg.textContent='Connecting...';
 
-    // LOGIN (inchangé)
-    async function login(){
-      const id=document.getElementById('login-id').value.trim().toLowerCase();
-      const pwd=document.getElementById('login-password').value;
-      const msg=document.getElementById('login-message');
-      if(!id||!pwd){ msg.textContent='Veuillez remplir tous les champs.'; return;}
-      msg.textContent='Connecting...';
+  try{
+    const { data:userData } = await supabase.from('mot_de_passe').select('*').eq('ID',id);
+    if(!userData||userData.length===0){ msg.textContent='ID incorrect.'; return;}
+    const emp=userData[0];
+    if(emp.Password!==pwd){ msg.textContent='Incorrect Password.'; return;}
+    currentUser=emp;
+    document.getElementById('username').textContent=emp.ID;
+    msg.textContent='';
+    document.getElementById('login-form').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    await loadEmployees();
+    populateFilters();
+  }catch(e){ console.error(e); msg.textContent='Error serveur.';}
+}
 
-      try{
-        const { data:userData } = await supabase.from('mot_de_passe').select('*').eq('ID',id);
-        if(!userData||userData.length===0){ msg.textContent='ID incorrect.'; return;}
-        const emp=userData[0];
-        if(emp.Password!==pwd){ msg.textContent='Incorrect Password.'; return;}
-        currentUser=emp;
-        document.getElementById('username').textContent=emp.ID;
-        msg.textContent='';
-        document.getElementById('login-form').style.display='none';
-        document.getElementById('dashboard').style.display='block';
-        await loadEmployees();
-        await loadActivityFeed();
-      }catch(e){ console.error(e); msg.textContent='Error serveur.';}
-    }
+function logout(){ 
+  currentUser=null; 
+  document.getElementById('login-id').value=''; 
+  document.getElementById('login-password').value=''; 
+  document.getElementById('login-form').style.display='block'; 
+  document.getElementById('dashboard').style.display='none'; 
+  document.getElementById('dashboardTab').style.display='none';
+}
 
-    function logout(){ 
-      currentUser=null; 
-      document.getElementById('login-id').value=''; 
-      document.getElementById('login-password').value=''; 
-      document.getElementById('login-form').style.display='block'; 
-      document.getElementById('dashboard').style.display='none'; 
-    }
+async function loadEmployees(){
+  const { data } = await supabase.from('roster').select('*');
+  if(!data)return;
+  employeesData=data;
+}
 
-    function showTab(tabId){
-      document.getElementById('dashboardTab').style.display=tabId==='dashboardTab'?'block':'none';
-      document.getElementById('btnDashboard').classList.toggle('active', tabId==='dashboardTab');
-    }
+function populateFilters(){
+  const siteSet = new Set(), shiftSet = new Set();
+  employeesData.forEach(emp=>{ if(emp.Site) siteSet.add(emp.Site); if(emp.Shift) shiftSet.add(emp.Shift); });
+  const siteSelect = document.getElementById('siteFilter');
+  const shiftSelect = document.getElementById('shiftFilter');
+  siteSet.forEach(site=>{ const opt=document.createElement('option'); opt.value=site; opt.textContent=site; siteSelect.appendChild(opt); });
+  shiftSet.forEach(shift=>{ const opt=document.createElement('option'); opt.value=shift; opt.textContent=shift; shiftSelect.appendChild(opt); });
+}
 
-    async function loadEmployees(){
-      const { data } = await supabase.from('roster').select('*');
-      if(!data)return;
-      employeesData=data;
-      renderEmployees(data);
-    }
+function applyFilter(){
+  const site=document.getElementById('siteFilter').value;
+  const shift=document.getElementById('shiftFilter').value;
+  if(!site || !shift){ alert('Select both Site and Shift'); return;}
+  const filtered = employeesData.filter(emp=>emp.Site===site && emp.Shift===shift);
+  renderEmployees(filtered);
+  document.getElementById('dashboardTab').style.display='block';
+  document.getElementById('employeesContainer').style.display='flex';
+  document.getElementById('backBtn').style.display='inline-block';
+}
 
-    function renderEmployees(data){
-      const container=document.getElementById('employeesContainer');
-      container.innerHTML='';
-      data.forEach(emp=>{
-        const card=document.createElement('div'); 
-        card.className='employee-card';
-        const actual=emp['Actual Units']||0, goal=emp['Weekly Goal']||0;
-        const perfPercent=goal>0?Math.min(100,Math.round(actual/goal*100)):0;
-        const stars=Math.ceil(perfPercent/33);
-        card.innerHTML=`
-          <div class="avatar"></div>
-          <h4>${emp.ID}</h4>
-          <p>Actual Units / Weekly Goal: ${actual} / ${goal}</p>
-          <div class="progress-bar-container">
-            <div class="progress-fill" style="width:${perfPercent}%;background:#00b894">${perfPercent}%</div>
-          </div>
-          <div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
-          <p>Thrive Coins: $${emp.Suka||0}</p>`;
-        card.onclick=()=>openModal(emp);
-        container.appendChild(card);
-      });
-    }
+function resetFilter(){
+  document.getElementById('dashboardTab').style.display='none';
+  document.getElementById('employeesContainer').style.display='none';
+  document.getElementById('backBtn').style.display='none';
+  document.getElementById('siteFilter').value='';
+  document.getElementById('shiftFilter').value='';
+}
 
-    function searchEmployees(){
-      const query=document.getElementById('searchInput').value.toLowerCase();
-      const filtered=employeesData.filter(emp=>emp.ID.toLowerCase().includes(query));
-      renderEmployees(filtered);
-    }
+function renderEmployees(data){
+  const container=document.getElementById('employeesContainer');
+  container.innerHTML='';
+  data.forEach(emp=>{
+    const actual=emp.Actual || 0, goal=emp.WeeklyGoal || 0;
+    const perfPercent=goal>0?Math.min(100,Math.round(actual/goal*100)):0;
+    const stars=Math.ceil(perfPercent/33);
+    const avatarUrl = `https://github.com/myly95/hypek/blob/main/${emp.ID}.png?raw=true`;
+    const card=document.createElement('div'); 
+    card.className='employee-card';
+    card.innerHTML=`
+      <img class="avatar" src="${avatarUrl}" alt="avatar" onerror="this.src='https://github.com/ghost.png'"/>
+      <h4>${emp.ID}</h4>
+      <p>Actual Units / Weekly Goal: ${actual} / ${goal}</p>
+      <div class="progress-bar-container">
+        <div class="progress-fill" style="width:${perfPercent}%;background:#00b894">${perfPercent}%</div>
+      </div>
+      <div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
+      <p>Thrive Coins: $${emp.Suka||0}</p>`;
+    card.onclick=()=>openModal(emp);
+    container.appendChild(card);
+  });
+}
 
-    async function openModal(emp){
-      selectedEmployee=emp;
-      document.getElementById('modalName').textContent=emp.ID;
-      document.getElementById('modalBadge').textContent=emp.ID;
-      document.getElementById('modalCoins').textContent=emp.Suka||0;
-      document.getElementById('modalActual').textContent=`${emp['Actual Units']||0} / ${emp['Weekly Goal']||0}`;
-      document.getElementById('employeeModal').style.display='flex';
-      await loadModalTransactions(emp.ID);
-    }
+function searchEmployees(){
+  const query=document.getElementById('searchInput').value.toLowerCase();
+  const filtered=employeesData.filter(emp=>emp.ID.toLowerCase().includes(query));
+  renderEmployees(filtered);
+}
 
-    function closeModal(){
-      document.getElementById('employeeModal').style.display='none';
-      selectedEmployee=null;
-      document.getElementById('txMessage').textContent='';
-    }
+async function openModal(emp){
+  selectedEmployee=emp;
+  const avatarUrl = `https://github.com/myly95/hypek/blob/main/${emp.ID}.png?raw=true`;
+  document.getElementById('modalAvatar').innerHTML=`<img src="${avatarUrl}" onerror="this.src='https://github.com/ghost.png'"/>`;
+  document.getElementById('modalName').textContent=emp.ID;
+  document.getElementById('modalBadge').textContent=emp.ID;
+  document.getElementById('modalCoins').textContent=emp.Suka||0;
+  document.getElementById('modalActual').textContent=`${emp.Actual||0} / ${emp.WeeklyGoal||0}`;
+  document.getElementById('modalProgress').style.width = emp.WeeklyGoal>0?`${Math.min(100,Math.round(emp.Actual/emp.WeeklyGoal*100))}%`:'0%';
+  document.getElementById('employeeModal').style.display='flex';
+  await loadModalTransactions(emp.ID);
+}
 
-    async function loadModalTransactions(id){
-      const tbody=document.getElementById('modalTransactions');
-      const { data } = await supabase.from('transactions').select('*').eq('ID',id).order('Date',{ascending:false}).limit(3);
-      tbody.innerHTML='';
-      if(!data||data.length===0){ tbody.innerHTML='<tr><td colspan="4">No transactions</td></tr>'; return;}
-      data.forEach(tx=>{
-        const date=new Date(tx.Date);
-        const dateStr=date.toISOString().slice(0,16).replace('T',' ');
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${dateStr}</td><td>${tx.Type||''}</td><td>${tx.Description||''}</td><td>${tx.Amount>=0?'+':''}${tx.Amount}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
+function closeModal(){
+  document.getElementById('employeeModal').style.display='none';
+  selectedEmployee=null;
+  document.getElementById('txMessage').textContent='';
+}
 
-    async function addTransaction(){
-      if(!selectedEmployee) return;
-      const type=document.getElementById('txType').value;
-      const desc=document.getElementById('txDesc').value;
-      const amount=Number(document.getElementById('txAmount').value);
-      const msg=document.getElementById('txMessage');
-      if(!type||!desc||isNaN(amount)){ msg.textContent='Please fill all fields correctly.'; return;}
-      msg.textContent='Submitting...';
-      try{
-        const date=new Date().toISOString();
-        await supabase.from('transactions').insert([{ID:selectedEmployee.ID,Date:date,Type:type,Description:desc,Amount:amount}]);
-        msg.textContent='Transaction added!';
-        document.getElementById('txAmount').value='';
-        loadModalTransactions(selectedEmployee.ID);
-        loadActivityFeed();
-        selectedEmployee.Suka=(selectedEmployee.Suka||0)+amount;
-        renderEmployees(employeesData);
-      }catch(e){ console.error(e); msg.textContent='Error server.';}
-    }
+async function loadModalTransactions(id){
+  const tbody=document.getElementById('modalTransactions');
+  const { data } = await supabase.from('transactions').select('*').eq('ID',id).order('Date',{ascending:false}).limit(5);
+  tbody.innerHTML='';
+  if(!data||data.length===0){ tbody.innerHTML='<tr><td colspan="4">No transactions</td></tr>'; return;}
+  data.forEach(tx=>{
+    const date=new Date(tx.Date);
+    const dateStr=date.toISOString().slice(0,16).replace('T',' ');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${dateStr}</td><td>${tx.Type||''}</td><td>${tx.Description||''}</td><td>${tx.Amount>=0?'+':''}${tx.Amount}</td>`;
+    tbody.appendChild(tr);
+  });
+}
 
-    async function loadActivityFeed(){
-      const feed=document.getElementById('activityFeed');
-      try{
-        const { data } = await supabase.from('transactions').select('*').order('Date',{ascending:false}).limit(5);
-        feed.innerHTML='';
-        if(!data||data.length===0){ feed.textContent='No recent activity'; return;}
-        data.forEach(tx=>{
-          const date=new Date(tx.Date);
-          const dateStr=date.toISOString().slice(0,16).replace('T',' ');
-          const div=document.createElement('div');
-          div.textContent=`${dateStr} - ${tx.ID}: ${tx.Description} (${tx.Amount>=0?'+':''}${tx.Amount})`;
-          feed.appendChild(div);
-        });
-      }catch(e){ console.error(e);}
-    }
-  </script>
+async function addTransaction(){
+  if(!selectedEmployee) return;
+  const type=document.getElementById('txType').value;
+  const desc=document.getElementById('txDesc').value;
+  let amount=parseFloat(document.getElementById('txAmount').value);
+  const msg=document.getElementById('txMessage');
+  msg.textContent='';
+
+  if(!desc || isNaN(amount)){ msg.textContent='Remplir la description et le montant.'; return;}
+  
+  // Check insufficient balance
+  let currSuka = selectedEmployee.Suka || 0;
+  if((desc==='Purchased DI' && currSuka<8) || (desc==='$5 Canteen' && currSuka<10)){
+    msg.textContent='Insufficient balance';
+    return;
+  }
+  
+  // For $5 Canteen or Purchased DI, deduct Suka
+  if(desc==='Purchased DI') amount = -8;
+  if(desc==='$5 Canteen') amount = -10;
+  
+  try{
+    // Insert transaction
+    await supabase.from('transactions').insert([{ID:selectedEmployee.ID, Type:type, Description:desc, Amount:amount, Date:new Date().toISOString()}]);
+    
+    // Update roster Suka
+    const { data: txs } = await supabase.from('transactions').select('Amount').eq('ID',selectedEmployee.ID);
+    const totalSuka = txs.reduce((sum,tx)=>sum+(tx.Amount||0),0);
+    await supabase.from('roster').update({Suka:totalSuka}).eq('ID',selectedEmployee.ID);
+    
+    // Reflect in UI
+    selectedEmployee.Suka=totalSuka;
+    document.getElementById('modalCoins').textContent=totalSuka;
+    renderEmployees(employeesData);
+    await loadModalTransactions(selectedEmployee.ID);
+    msg.textContent='Transaction ajoutée.';
+  }catch(e){ console.error(e); msg.textContent='Erreur serveur.';}
+}
+</script>
 </body>
 </html>
+
