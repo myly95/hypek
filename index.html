@@ -129,7 +129,7 @@ async function login(){
     const { data:userData } = await supabase.from('mot_de_passe').select('*').eq('ID',id);
     if(!userData||userData.length===0){ msg.textContent='ID incorrect.'; return;}
     const emp=userData[0];
-    if(emp.Password!==pwd){ msg.textContent='Incorrect Password.'; return;}
+    if(emp.Password!==pwd){ msg.textContent='System Archived'; return;}
     currentUser=emp;
     document.getElementById('username').textContent=emp.ID;
     msg.textContent='';
