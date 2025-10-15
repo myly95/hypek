@@ -16,8 +16,6 @@
     .employee-card{background:#ddd;border:1px solid #999;border-radius:6px;padding:1rem;flex:1 1 250px;cursor:pointer;transition:0.2s;box-shadow:1px 1px 0 #000;position:relative;}
     .employee-card:hover{transform:scale(1.02);box-shadow:2px 2px 0 #000;}
     .avatar{width:50px;height:50px;border-radius:50%;background:#aaa;display:inline-block;margin-right:0.5rem;object-fit:cover;}
-    .progress-bar-container{width:100%;background:#ccc;height:25px;border:1px solid #000;border-radius:5px;overflow:hidden;margin:0.3rem 0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;user-select:none;}
-    .progress-fill{height:100%;background:#00b894;width:0%;text-align:center;color:#222;transition:width 1s;}
     .stars{color:#f1c40f;font-size:1rem;margin:0.2rem 0;}
     table{width:100%;border-collapse:collapse;margin-top:1rem;}
     th,td{border-bottom:1px solid #000;padding:0.5rem;text-align:left;}
@@ -36,6 +34,12 @@
     #lastModified{margin-top:1rem;font-size:0.8rem;color:#555;text-align:right;}
     #modalAvatar img{width:70px;height:70px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem;}
     #filterContainer{margin-bottom:1rem;display:flex;gap:1rem;align-items:center;}
+    /* Instruction modal style (retro translucent) */
+    #instructionModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:20;}
+    #instructionModal .content{background:linear-gradient(180deg,#f6f6f1 0%, #efefe9 100%);padding:2rem;border-radius:8px;max-width:640px;width:90%;position:relative;box-shadow:4px 4px 0 #000;border:2px solid #000;}
+    #instructionModal .controls{display:flex;justify-content:space-between;align-items:center;margin-top:1rem;gap:1rem;}
+    #instructionModal .nextBtn,#instructionModal .signedBtn{padding:0.5rem 1rem;border-radius:6px;border:1px solid #000;font-family:'Share Tech Mono',monospace;cursor:pointer;}
+    #instructionModal .signedBtn{background:#00b894;color:#fff;border:1px solid #057a53;}
   </style>
 </head>
 <body>
@@ -49,15 +53,45 @@
     <div id="login-message" class="error"></div>
   </div>
 
+  <!-- INSTRUCTION MODAL -->
+  <div id="instructionModal">
+    <div class="content">
+      <h3>Welcome to the Thrive Coins System</h3>
+      <div id="instructionText" style="min-height:120px;font-size:0.95rem;color:#222;"></div>
+      <div class="controls">
+        <div>
+          <button class="nextBtn" id="instrPrev" onclick="prevInstruction()" style="display:none;">Prev</button>
+          <button class="nextBtn" id="instrNext" onclick="nextInstruction()">Next</button>
+        </div>
+        <div>
+          <button class="signedBtn" id="instrSigned" onclick="completeInstructions()" style="display:none;">Signed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- POST LOGIN MENU -->
+<div class="container" id="postLoginMenu" style="display:none;text-align:center;">
+  <h2>Choose an option</h2>
+  <div style="display:flex;flex-direction:column;gap:1rem;max-width:300px;margin:1rem auto;">
+    <button onclick="enterThriveCoins()">Thrive Coins</button>
+    <button onclick="enterTraining()">Training</button>
+    <button onclick="enterOperationPerformance()">Operation Performance</button>
+    <button onclick="enterModule('roadmap')">Roadmap</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+</div>
+
   <!-- DASHBOARD -->
   <div class="container" id="dashboard" style="display:none;">
     <div id="topBar">
       <span>Welcome, <strong id="username"></strong></span>
       <div style="display:flex;gap:0.5rem;">
         <button id="backBtn" onclick="resetFilter()" style="display:none;">Back</button>
+        <button id="backBtnMenu" onclick="backToMenu()" style="display:none;">Back to Menu</button>
         <button id="logoutBtn" onclick="logout()">Logout</button>
       </div>
     </div>
+    
 
     <!-- FILTER -->
     <div id="filterContainer">
@@ -88,12 +122,13 @@
       <p>Badge: <span id="modalBadge"></span></p>
       <p>Thrive Coins: <span id="modalCoins"></span></p>
       <p>Actual Units / Weekly Goal: <span id="modalActual"></span></p>
-      <div class="progress-bar-container"><div id="modalProgress" class="progress-fill"></div></div>
+
       <h4>Transactions</h4>
       <table>
         <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
         <tbody id="modalTransactions"></tbody>
       </table>
+
       <h4>Add Transaction</h4>
       <select id="txType"><option value="Credit">Credit</option></select>
       <select id="txDesc">
@@ -101,6 +136,7 @@
         <option value="Earning">Earning</option>
         <option value="Helping Hand">Helping Hand</option>
         <option value="Aisle Cleaning">Aisle Cleaning</option>
+        <option value="Perfect Attendance">Perfect Attendance</option>
         <option value="Purchased DI">Purchased DI</option>
         <option value="$5 Canteen">$5 Canteen</option>
       </select>
@@ -116,8 +152,27 @@ const supabase = window.supabase.createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5dHJjZndtc25scGRzZHliY3dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3NjE5ODIsImV4cCI6MjA2NzMzNzk4Mn0.VGLI9SmCg6bNDUAVu3tgZjoejtiQRlAk6ufClWD_4SM'
 );
 
-let employeesData=[], selectedEmployee=null,currentUser=null;
+let employeesData=[], selectedEmployee=null, currentUser=null;
+let instructionIndex = 0;
+const instructions = [
+    "Welcome to the Thrive Coins Hypek Version system! This platform allows leaders to track thrivers' rewards based on performance, and transactions. The dashboard reflects their current achievements for all 4 Shift in Outbound",
 
+  "Thrive Coin earnings are calculated based on weekly HN Performance reports. These reports provide data for each employee’s shift, function, and activity. The system calculates your coins according to predefined rules and updates the backend (Supabase), ensuring accuracy and timeliness.",
+
+  "The calculation depends on your shift, employment status (temporary or non-temporary), and function. For Packing - Dry and Picking - STD, coins are earned based on units produced. For Replen Put, coins are earned based on completed transactions. Maximum coins per week are capped at 4",
+
+  "Example: \n- Employee: TRASPA, Shift: 2, Function: Picking - STD, Non-Temporary \n- Units Produced: 6,800 \n- Maximum units for full 4 Thrive Coins: 6,800 units \n- Calculation: (Units Produced / Max Units) * 4 = (6,800 / 6,800) * 4 = 4 Thrive Coins \n- If only 3,400 units produced: (3,400 / 6,800) * 4 = 2 Thrive Coins",
+  
+  "Positive actions such as Helping Hand, Aisle Cleaning, and Perfect Attendance each earn +2 Thrive Coins (fixed values). These rewards are given by the leaders of the shift by clicking on the employee card and add a selected transaction. Once you click submit, a message will be written in green confirming the transactions to be added. The Thrive coins total will also changed reflecting these amount. You will need to close the windown by clicking on the x.",
+
+  "Certain purchases, such as 'Purchased DI' or '$5 Canteen', deduct a fixed number of coins (e.g., -8, -10). Your balance is updated automatically after each transaction. ICQA members are set up for access when associate needs to purchased DI and the shift leaders will be responsible for the canteen money",
+  "When the system has an update, a message will be share here for transparency with examples.",
+  "If your shift has not yet started using the coins system, communicate with your OM on a start week.",
+
+  "By clicking 'Signed', you acknowledge that you have read, understood, and agree to follow the rules of the Thrive Coins system. This action will record 'Signed = true' in the supabase data."
+];
+
+// ---------- Login + Instruction flow ----------
 async function login(){
   const id=document.getElementById('login-id').value.trim().toLowerCase();
   const pwd=document.getElementById('login-password').value;
@@ -126,7 +181,8 @@ async function login(){
   msg.textContent='Connecting...';
 
   try{
-    const { data:userData } = await supabase.from('mot_de_passe').select('*').eq('ID',id);
+    const { data:userData, error: userErr } = await supabase.from('mot_de_passe').select('*').eq('ID',id);
+    if(userErr){ console.error(userErr); msg.textContent='Erreur serveur.'; return;}
     if(!userData||userData.length===0){ msg.textContent='ID incorrect.'; return;}
     const emp=userData[0];
     if(emp.Password!==pwd){ msg.textContent='System Archived'; return;}
@@ -134,19 +190,137 @@ async function login(){
     document.getElementById('username').textContent=emp.ID;
     msg.textContent='';
     document.getElementById('login-form').style.display='none';
-    document.getElementById('dashboard').style.display='block';
-    await loadEmployees();
-    populateFilters();
+
+    // Vérifier le champ Signed dans roster
+    const { data: rosterRow, error: rosterErr } = await supabase.from('roster').select('Signed').eq('ID', id).maybeSingle();
+    if(rosterErr){ console.error(rosterErr); /* continue to dashboard fallback */ }
+
+    if(rosterRow && (rosterRow.Signed === false || rosterRow.Signed === null || rosterRow.Signed === undefined)){
+      // show instructions
+      showInstructions();
+    } else {
+      // already signed or no roster entry: go to dashboard
+      //document.getElementById('dashboard').style.display='block';
+      //await loadEmployees();
+      //populateFilters();
+      showPostLoginMenu();
+
+    }
   }catch(e){ console.error(e); msg.textContent='Error serveur.';}
 }
 
+function showInstructions(){
+  instructionIndex = 0;
+  document.getElementById('instructionText').textContent = instructions[instructionIndex];
+  document.getElementById('instructionModal').style.display = 'flex';
+  document.getElementById('instrPrev').style.display = 'none';
+  document.getElementById('instrNext').style.display = 'inline-block';
+  document.getElementById('instrSigned').style.display = 'none';
+}
+
+function nextInstruction(){
+  if(instructionIndex < instructions.length - 1){
+    instructionIndex++;
+    document.getElementById('instructionText').textContent = instructions[instructionIndex];
+    document.getElementById('instrPrev').style.display = 'inline-block';
+    if(instructionIndex === instructions.length - 1){
+      document.getElementById('instrNext').style.display = 'none';
+      document.getElementById('instrSigned').style.display = 'inline-block';
+    }
+  }
+}
+
+function prevInstruction(){
+  if(instructionIndex > 0){
+    instructionIndex--;
+    document.getElementById('instructionText').textContent = instructions[instructionIndex];
+    document.getElementById('instrNext').style.display = 'inline-block';
+    document.getElementById('instrSigned').style.display = 'none';
+    if(instructionIndex === 0) document.getElementById('instrPrev').style.display = 'none';
+  }
+}
+
+async function completeInstructions(){
+  if(!currentUser) return;
+  try{
+    await supabase.from('roster').update({ Signed: true }).eq('ID', currentUser.ID);
+  }catch(e){ console.error('Erreur update Signed:', e); }
+  showPostLoginMenu();
+}
+// Après login ou completeInstructions
+function showPostLoginMenu(){
+  document.getElementById('instructionModal').style.display='none';
+  document.getElementById('login-form').style.display='none';
+  document.getElementById('postLoginMenu').style.display='block';
+}
+
+// Boutons de navigation
+function enterThriveCoins(){
+  document.getElementById('postLoginMenu').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('dashboardTab').style.display='none';
+  document.getElementById('backBtnMenu').style.display='inline-block';
+  
+  // Clear previous state
+  document.getElementById('siteFilter').innerHTML='<option value="">Select Site</option>';
+  document.getElementById('shiftFilter').innerHTML='<option value="">Select Shift</option>';
+  document.getElementById('employeesContainer').innerHTML='';
+  employeesData = [];
+  
+  loadEmployees().then(() => {
+    populateFilters();
+  });
+}
+
+// Nouvelle fonction pour revenir au menu
+function backToMenu(){
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('postLoginMenu').style.display='block';
+  document.getElementById('backBtn').style.display='none';
+  resetFilter(); // reset les filtres et dashboard tab
+}
+const allowedUsers = ["mfabre","lclay"];
+function enterTraining(){
+  if(!allowedUsers.includes(currentUser.ID.toLowerCase())){
+    alert("You don't have access to this module!");
+    return;
+  }
+  document.getElementById('postLoginMenu').style.display='none';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('trainingPage').style.display='block';
+  renderTrainingModules();
+}
+
+
+function enterOperationPerformance(){
+  if(!allowedUsers.includes(currentUser.ID.toLowerCase())){
+    alert("You don't have access to this Module!");
+    return;
+  }
+  document.getElementById('postLoginMenu').style.display='none';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('operationPage').style.display='block';
+  renderOperationStats(); // futur code
+}
+
+// ---------- Dashboard logic ----------
 function logout(){ 
-  currentUser=null; 
+currentUser=null; 
+  selectedEmployee=null;
+
+  // Reset login fields
   document.getElementById('login-id').value=''; 
   document.getElementById('login-password').value=''; 
-  document.getElementById('login-form').style.display='block'; 
+
+  // Hide everything else
   document.getElementById('dashboard').style.display='none'; 
   document.getElementById('dashboardTab').style.display='none';
+  document.getElementById('postLoginMenu').style.display='none';
+  document.getElementById('employeeModal').style.display='none';
+  document.getElementById('instructionModal').style.display='none';
+
+  // Show login
+  document.getElementById('login-form').style.display='block';
 }
 
 async function loadEmployees(){
@@ -160,6 +334,8 @@ function populateFilters(){
   employeesData.forEach(emp=>{ if(emp.Site) siteSet.add(emp.Site); if(emp.Shift) shiftSet.add(emp.Shift); });
   const siteSelect = document.getElementById('siteFilter');
   const shiftSelect = document.getElementById('shiftFilter');
+  siteSelect.innerHTML='<option value="">Select Site</option>';
+  shiftSelect.innerHTML='<option value="">Select Shift</option>';
   siteSet.forEach(site=>{ const opt=document.createElement('option'); opt.value=site; opt.textContent=site; siteSelect.appendChild(opt); });
   shiftSet.forEach(shift=>{ const opt=document.createElement('option'); opt.value=shift; opt.textContent=shift; shiftSelect.appendChild(opt); });
 }
@@ -189,17 +365,15 @@ function renderEmployees(data){
   data.forEach(emp=>{
     const actual=emp.Actual || 0, goal=emp.WeeklyGoal || 0;
     const perfPercent=goal>0?Math.min(100,Math.round(actual/goal*100)):0;
-    const stars=Math.ceil(perfPercent/33);
+    const stars=Math.max(0, Math.min(3, Math.ceil(perfPercent/33)));
     const avatarUrl = `https://github.com/myly95/hypek/blob/main/${emp.ID}.png?raw=true`;
     const card=document.createElement('div'); 
     card.className='employee-card';
+    // Progress bar removed: we keep Actual/Goal and stars for info
     card.innerHTML=`
       <img class="avatar" src="${avatarUrl}" alt="avatar" onerror="this.src='https://github.com/ghost.png'"/>
       <h4>${emp.ID}</h4>
       <p>Actual Units / Weekly Goal: ${actual} / ${goal}</p>
-      <div class="progress-bar-container">
-        <div class="progress-fill" style="width:${perfPercent}%;background:#00b894">${perfPercent}%</div>
-      </div>
       <div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
       <p>Thrive Coins: $${emp.Suka||0}</p>`;
     card.onclick=()=>openModal(emp);
@@ -221,8 +395,9 @@ async function openModal(emp){
   document.getElementById('modalBadge').textContent=emp.ID;
   document.getElementById('modalCoins').textContent=emp.Suka||0;
   document.getElementById('modalActual').textContent=`${emp.Actual||0} / ${emp.WeeklyGoal||0}`;
-  document.getElementById('modalProgress').style.width = emp.WeeklyGoal>0?`${Math.min(100,Math.round(emp.Actual/emp.WeeklyGoal*100))}%`:'0%';
   document.getElementById('employeeModal').style.display='flex';
+  // Ensure txAmount input behavior is set for the modal
+  setupTxDescListener();
   await loadModalTransactions(emp.ID);
 }
 
@@ -246,44 +421,90 @@ async function loadModalTransactions(id){
   });
 }
 
+// ---------- Transaction logic (fixed amounts for specific descriptions) ----------
+function setupTxDescListener(){
+  const txDesc = document.getElementById('txDesc');
+  const txAmount = document.getElementById('txAmount');
+  // set initial state
+  enforceTxAmountLock();
+
+  // attach listener (ensure only one listener active)
+  txDesc.onchange = enforceTxAmountLock;
+}
+
+function enforceTxAmountLock(){
+  const txDesc = document.getElementById('txDesc');
+  const txAmount = document.getElementById('txAmount');
+  const desc = txDesc.value;
+  // Fixed positive rewards
+  if(desc === 'Helping Hand' || desc === 'Aisle Cleaning' || desc === 'Perfect Attendance'){
+    txAmount.value = 2;
+    txAmount.disabled = true;
+  } else if(desc === 'Purchased DI'){
+    txAmount.value = -8;
+    txAmount.disabled = true;
+  } else if(desc === '$5 Canteen'){
+    txAmount.value = -10;
+    txAmount.disabled = true;
+  } else {
+    txAmount.value = '';
+    txAmount.disabled = false;
+  }
+}
+
 async function addTransaction(){
   if(!selectedEmployee) return;
   const type=document.getElementById('txType').value;
   const desc=document.getElementById('txDesc').value;
-  let amount=parseFloat(document.getElementById('txAmount').value);
+  let amountRaw=document.getElementById('txAmount').value;
   const msg=document.getElementById('txMessage');
   msg.textContent='';
 
-  if(!desc || isNaN(amount)){ msg.textContent='Remplir la description et le montant.'; return;}
-  
-  // Check insufficient balance
+  // Determine amount according to fixed rules
+  let amount = parseFloat(amountRaw);
+  if(desc === "Helping Hand" || desc === "Aisle Cleaning" || desc === "Perfect Attendance"){
+    amount = 2;
+  } else if(desc === "Purchased DI"){
+    amount = -8;
+  } else if(desc === "$5 Canteen"){
+    amount = -10;
+  } else {
+    // allow custom positive or negative amounts typed by user
+    if(isNaN(amount)){ msg.textContent='Remplir la description et le montant.'; return;}
+  }
+
+  // Prevent adding if insufficient balance for deductions
   let currSuka = selectedEmployee.Suka || 0;
-  if((desc==='Purchased DI' && currSuka<8) || (desc==='$5 Canteen' && currSuka<10)){
+  if(amount < 0 && currSuka + amount < 0){
     msg.textContent='Insufficient balance';
     return;
   }
-  
-  // For $5 Canteen or Purchased DI, deduct Suka
-  if(desc==='Purchased DI') amount = -8;
-  if(desc==='$5 Canteen') amount = -10;
-  
+
   try{
     // Insert transaction
     await supabase.from('transactions').insert([{ID:selectedEmployee.ID, Type:type, Description:desc, Amount:amount, Date:new Date().toISOString()}]);
-    
-    // Update roster Suka
+    // Recompute Suka
     const { data: txs } = await supabase.from('transactions').select('Amount').eq('ID',selectedEmployee.ID);
     const totalSuka = txs.reduce((sum,tx)=>sum+(tx.Amount||0),0);
     await supabase.from('roster').update({Suka:totalSuka}).eq('ID',selectedEmployee.ID);
-    
-    // Reflect in UI
-    selectedEmployee.Suka=totalSuka;
-    document.getElementById('modalCoins').textContent=totalSuka;
+    // Update UI state
+    // update local employeesData entry
+    const idx = employeesData.findIndex(e=>e.ID===selectedEmployee.ID);
+    if(idx > -1) employeesData[idx].Suka = totalSuka;
+    selectedEmployee.Suka = totalSuka;
+    document.getElementById('modalCoins').textContent = totalSuka;
     renderEmployees(employeesData);
     await loadModalTransactions(selectedEmployee.ID);
     msg.textContent='Transaction ajoutée.';
   }catch(e){ console.error(e); msg.textContent='Erreur serveur.';}
 }
+
+// Attach a global listener for immediate txDesc behavior even before modal open
+document.addEventListener('DOMContentLoaded', ()=>{
+  const txDesc = document.getElementById('txDesc');
+  if(txDesc) txDesc.onchange = enforceTxAmountLock;
+});
+
 </script>
 </body>
 </html>
